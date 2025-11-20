@@ -3,180 +3,158 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Freie Räume – Live (Firebase)</title>
+  <title>Freie Räume – Live (vollständig)</title>
   <style>
-    :root{--bg:#f4f6f8;--card:#fff;--accent:#2a7;--muted:#657;}
-    body{font-family:Inter,Arial,Helvetica,sans-serif;background:var(--bg);margin:0;padding:18px;display:flex;justify-content:center}
-    .wrap{max-width:980px;width:100%}
+    :root{
+      --bg:#f4f6f8; --card:#fff; --accent:#2a7; --muted:#657;
+    }
+    body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);margin:0;padding:18px;display:flex;justify-content:center}
+    .wrap{max-width:1100px;width:100%}
     header{display:flex;gap:12px;align-items:center;margin-bottom:12px}
     h1{margin:0;font-size:22px}
-    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
     .box{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 6px 18px rgba(12,20,30,0.06)}
-    label{font-size:13px;color:var(--muted)}
-    select,input[type="time"],input[type="date"],input[type="text"]{display:block;width:100%;padding:8px;border-radius:8px;border:1px solid #e6e9ee;margin-top:6px}
+    label{font-size:13px;color:var(--muted);display:block}
+    select,input[type="time"],input[type="date"],input[type="text"]{
+      display:block;width:100%;padding:8px;border-radius:8px;border:1px solid #e6e9ee;margin-top:6px
+    }
     .small{font-size:13px;color:var(--muted);margin-top:6px}
     button{background:var(--accent);color:white;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
-    .muted{color:var(--muted)}
-    #freeRoomsList{font-weight:700;color:var(--accent);margin-top:8px}
-    .row{display:flex;gap:8px;align-items:center}
     .room-pill{display:inline-block;padding:6px 8px;border-radius:999px;background:#f1f9f1;border:1px solid #e6f3ea;margin:4px;cursor:pointer}
-    .room-pill.disabled{opacity:0.45;background:#fff2f2;border-color:#ffdfdf}
-    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-    .notice{font-size:13px;color:var(--muted);margin-top:8px}
+    .room-pill.taken{background:#fff2f2;border-color:#ffdfdf;opacity:0.6}
+    .muted{color:var(--muted)}
+    .row{display:flex;gap:8px;align-items:center}
     hr{border:none;border-top:1px solid #eee;margin:12px 0}
-    @media (max-width:820px){.grid{grid-template-columns:1fr}header{flex-direction:column;align-items:flex-start}}
+    pre.small{white-space:pre-wrap;font-family:inherit}
+    @media(max-width:980px){.grid{grid-template-columns:1fr;}}
   </style>
 </head>
 <body>
   <div class="wrap">
     <header>
-      <h1>Freie Räume – Live (mit Reservierungen)</h1>
-      <div class="muted">(Ohne Login · Realtime DB: freiraume)</div>
+      <h1>Freie Räume – Live (komplett)</h1>
+      <div class="muted">Realtime DB: freiraume (ohne Login)</div>
     </header>
 
     <div class="grid">
-      <!-- LIVE PANEL -->
+
+      <!-- LIVE -->
       <div class="box">
         <h3>Live-Anzeige</h3>
-        <div class="row">
-          <div style="flex:1">
-            <label for="liveDate">Datum</label>
-            <input type="date" id="liveDate">
-          </div>
-          <div style="width:140px">
-            <label for="liveTime">Uhrzeit</label>
-            <input type="time" id="liveTime" step="60">
-          </div>
-        </div>
+        <label for="liveDate">Datum</label>
+        <input type="date" id="liveDate">
 
-        <div style="margin-top:8px" class="row">
-          <label><input type="checkbox" id="pianoOnlyLive"> Nur Räume mit Flügel</label>
-          <label style="margin-left:auto" class="small">Letzte Aktualisierung: <span id="lastSync">–</span></label>
-        </div>
+        <label for="liveTime" style="margin-top:8px">Uhrzeit</label>
+        <input type="time" id="liveTime" step="60">
 
-        <div id="freeRoomsList" class="small">–</div>
-        <div class="actions" id="liveActions"></div>
-        <div class="notice">Klicke auf einen Raum, um ihn vorzubelegen (Reservierung) oder um im Reservierungsformular vorzubefüllen.</div>
+        <label style="margin-top:8px"><input type="checkbox" id="filterPianoLive"> Nur Räume mit Flügel</label>
+
+        <div id="liveStatus" class="small" style="margin-top:10px">Letzte Aktualisierung: <span id="lastSync">–</span></div>
+        <div id="liveFree" style="margin-top:8px;font-weight:700;color:var(--accent)"></div>
+        <div id="liveRoomList" class="small" style="margin-top:8px"></div>
+        <div style="margin-top:8px" class="small muted">Klicke einen Raum, um das Reservierungsformular vorzubefüllen.</div>
       </div>
 
-      <!-- SEARCH/TOOLS -->
+      <!-- EINZELABFRAGE -->
       <div class="box">
-        <h3>Suche & Zeitfenster</h3>
-        <label for="searchDate">Datum</label>
-        <input type="date" id="searchDate">
+        <h3>Manuelle Einzelabfrage</h3>
+        <label for="singleDate">Datum</label>
+        <input type="date" id="singleDate">
 
-        <div class="row" style="margin-top:8px">
-          <div style="flex:1">
-            <label for="startTime">Startzeit</label>
-            <input type="time" id="startTime" step="1800">
-          </div>
-          <div style="width:140px">
-            <label for="endTime">Endzeit</label>
-            <input type="time" id="endTime" step="1800">
-          </div>
-        </div>
+        <label style="margin-top:8px">Uhrzeit</label>
+        <input type="time" id="singleTime" step="1800">
 
-        <div style="margin-top:8px">
-          <label><input type="checkbox" id="pianoOnlySearch"> Nur Räume mit Flügel</label>
-        </div>
+        <label style="margin-top:8px"><input type="checkbox" id="filterPianoSingle"> Nur Räume mit Flügel</label>
 
         <div style="margin-top:10px" class="row">
-          <button id="btnCheckWindow">Zeitfenster prüfen</button>
-          <button id="btnShowSchedule" style="background:#5578ff">Zeige Tagesplan</button>
+          <button id="btnManualCheck">Prüfen</button>
+          <div id="manualResult" class="small" style="margin-left:10px">–</div>
         </div>
-
-        <div id="searchResult" class="small" style="margin-top:12px">–</div>
 
         <hr>
 
-        <h4>Manuelle Einzelabfrage</h4>
-        <div class="row">
-          <div style="flex:1">
-            <label for="singleDate">Datum</label>
-            <input type="date" id="singleDate">
-          </div>
-          <div style="width:140px">
-            <label for="singleTime">Uhrzeit</label>
-            <input type="time" id="singleTime" step="1800">
-          </div>
-        </div>
-        <div style="margin-top:8px">
-          <label><input type="checkbox" id="pianoOnlySingle"> Nur Räume mit Flügel</label>
-        </div>
-        <div style="margin-top:8px" class="row">
-          <button id="btnManualCheck">Prüfen</button>
-          <div id="manualResult" class="small" style="margin-left:8px">–</div>
-        </div>
-      </div>
+        <h4>Reservieren / Override</h4>
+        <label for="reserveDate">Datum</label>
+        <input type="date" id="reserveDate">
 
-      <!-- RESERVIERUNG & OVERRIDES (full width) -->
-      <div class="box" style="grid-column:1 / -1">
-        <h3>Reservieren / Overrides</h3>
-        <div class="row">
-          <div style="flex:1">
-            <label for="reserveDate">Datum</label>
-            <input type="date" id="reserveDate">
-          </div>
-          <div style="width:160px">
-            <label for="reserveSlot">Zeitslot</label>
-            <select id="reserveSlot"></select>
-          </div>
-        </div>
+        <label style="margin-top:8px">Slot</label>
+        <select id="reserveSlot"></select>
 
-        <div class="row" style="margin-top:8px">
-          <div style="flex:1">
-            <label for="reserveRoom">Raum (z. B. R4)</label>
-            <input type="text" id="reserveRoom" placeholder="R4">
-          </div>
-          <div style="width:160px">
-            <label for="yourName">Dein Name</label>
-            <input type="text" id="yourName" placeholder="z. B. Lukas">
-          </div>
-        </div>
+        <label style="margin-top:8px">Raum</label>
+        <input type="text" id="reserveRoom" placeholder="z. B. R4">
+
+        <label style="margin-top:8px">Dein Name</label>
+        <input type="text" id="reserveName" placeholder="z. B. Lukas">
 
         <div style="margin-top:8px" class="row">
           <button id="btnReserve">Reservieren</button>
-          <button id="btnMarkFree" style="background:#2a7;">Override: Dann frei</button>
-          <button id="btnMarkTaken" style="background:#ff6b6b">Override: Dann belegt</button>
+          <button id="btnOverrideFree" style="background:#2a7;">Override: Dann frei</button>
+          <button id="btnOverrideTaken" style="background:#ff6b6b">Override: Dann belegt</button>
+        </div>
+        <div id="reserveNotice" class="small" style="margin-top:8px">–</div>
+      </div>
+
+      <!-- ZEITFENSTER & TAGESPLAN -->
+      <div class="box">
+        <h3>Zeitfenster prüfen</h3>
+        <label for="windowDate">Datum</label>
+        <input type="date" id="windowDate">
+
+        <div class="row" style="margin-top:8px">
+          <div style="flex:1">
+            <label>Start</label>
+            <input type="time" id="windowStart" step="1800">
+          </div>
+          <div style="flex:1">
+            <label>Ende</label>
+            <input type="time" id="windowEnd" step="1800">
+          </div>
         </div>
 
-        <div id="reserveNotice" class="small" style="margin-top:8px">–</div>
+        <label style="margin-top:8px"><input type="checkbox" id="filterPianoWindow"> Nur Räume mit Flügel</label>
+
+        <div style="margin-top:10px" class="row">
+          <button id="btnCheckWindow">Zeitfenster prüfen</button>
+          <button id="btnShowDayPlan" style="background:#5578ff">Zeige Tagesplan</button>
+        </div>
+
+        <div id="windowResult" class="small" style="margin-top:12px">–</div>
 
         <hr>
-        <h4>Tagesplan (Weekly Basis + Overrides/Reservierungen)</h4>
-        <div id="dayPlan" class="small">Lade...</div>
-      </div>
-    </div>
 
-    <div style="height:18px"></div>
+        <h4>Tagesplan (Basis + Overrides + Reservierungen)</h4>
+        <div id="dayPlan" class="small" style="margin-top:8px">Lade...</div>
+      </div>
+
+    </div>
   </div>
 
-  <!-- Firebase (compat build for easy single-file usage) -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <!-- Firebase ESM via CDN -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getDatabase, ref, onValue, get, set, push, child
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-  <script>
-  // ================== YOUR FIREBASE CONFIG (eingebaut) ==================
-  const firebaseConfig = {
-    apiKey: "AIzaSyAeqhQhTayYp4T7BIHRxn8iGPLaM0bqy5o",
-    authDomain: "freieraume.firebaseapp.com",
-    databaseURL: "https://freieraume-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "freieraume",
-    storageBucket: "freieraume.firebasestorage.app",
-    messagingSenderId: "990554662786",
-    appId: "1:990554662786:web:0849d2e4858ab83fead19b",
-    measurementId: "G-QTZN90B1NN"
-  };
-  // ======================================================================
+    // ------------------- FIREBASE CONFIG -------------------
+    const firebaseConfig = {
+      apiKey: "AIzaSyAeqhQhTayYp4T7BIHRxn8iGPLaM0bqy5o",
+      authDomain: "freieraume.firebaseapp.com",
+      databaseURL: "https://freieraume-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "freieraume",
+      storageBucket: "freieraume.firebasestorage.app",
+      messagingSenderId: "990554662786",
+      appId: "1:990554662786:web:0849d2e4858ab83fead19b",
+      measurementId: "G-QTZN90B1NN"
+    };
 
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-  // ----------------- SCHEDULE (weekly) -----------------
-  // This is the schedule content copied from your original file (Mon-Fri).
-  // Keys are English weekday names to match new Date(...).toLocaleDateString('en-US',{weekday:'long'})
-  const schedule = {
+    // ------------------- SCHEDULE (full: paste your full schedule here) -------------------
+    // I inserted your complete schedule below as before (Mon-Fri).
+    // Keys are english weekday names: Monday, Tuesday, ...
+    const schedule = {
   "Monday": {
     "09:00-09:30": "R4, R5, R11, R12, R13, R16, R17",
     "09:30-10:00": "R4, R5, R11, R12, R13, R16, R17",
@@ -226,7 +204,7 @@
     "17:30-18:00": "R4, R5, R13, R15, R17",
     "18:00-18:30": "R4, R5, R11, R13, R15, R17",
     "18:30-19:00": "R5, R11, R13, R15, R16, R17",
-    "19:00-19:30": "R5, R11, R13, R15, R16",
+    "19:00-19:30": "R5, R11, R13, R15, R16, R17",
     "19:30-20:00": "R5, R11, R12, R13, R15, R16",
     "20:00-20:30": "R5, R11, R12, R13, R15, R16",
     "20:30-21:00": "R5, R11, R12, R13, R15, R16, R17",
@@ -317,236 +295,285 @@
     "21:00-21:30": "R4, R5, R11, R12, R13, R16, R17",
     "21:30-22:00": "R4, R5, R11, R12, R13, R16, R17"
   }
-  }; // end schedule
+}; // end schedule
 
-  // ----------------- piano mapping -----------------
-  const pianoRooms = {
-    "R4": true,
-    "R5": false,
-    "R11": true,
-    "R12": false,
-    "R13": true,
-    "R15": false,
-    "R16": false,
-    "R17": false
-  };
+    // ------------------- piano map -------------------
+    const hasPiano = {"R4":true,"R5":false,"R11":true,"R12":false,"R13":true,"R15":false,"R16":false,"R17":false};
 
-  // ----------------- local caches -----------------
-  let overrides = {};     // overrides["YYYY-MM-DD"]["HH:MM-HH:MM"] = { R4: 'frei'|'belegt' }
-  let reservations = {};  // reservations["YYYY-MM-DD"]["HH:MM-HH:MM"] = [ { room, user, ts } ]
+    // ------------------- local caches -------------------
+    let overridesCache = {};    // overridesCache[date][slot] = { R4: 'frei'|'belegt' }
+    let reservationsCache = {}; // reservationsCache[date][slot] = [ { room, user, ts } ]
 
-  // ----------------- helpers -----------------
-  function toMinutes(t){ if(!t) return 0; const [h,m]=t.split(":").map(Number); return h*60+m; }
-  function dateKeyFromInput(val){ if(!val) return null; return val; } // val is yyyy-mm-dd
-  function weekdayFromDateKey(dateKey){ const d = new Date(dateKey + 'T00:00'); return d.toLocaleDateString('en-US',{weekday:'long'}); }
+    // ------------------- helpers -------------------
+    const toMinutes = t => { if(!t) return 0; const [h,m]=t.split(":").map(Number); return h*60+m; };
+    const weekdayName = dateStr => new Date(dateStr + "T00:00").toLocaleDateString("en-US",{weekday:"long"});
+    const emptyIf = v => v === undefined || v === null ? {} : v;
 
-  // ----------------- firebase refs & listeners -----------------
-  const overridesRef = db.ref('overrides');
-  const reservationsRef = db.ref('reservations');
+    // find slot for time (uses schedule keys)
+    function findSlotForTime(dateStr, timeStr){
+      const wd = weekdayName(dateStr);
+      const day = schedule[wd] || {};
+      const minutes = toMinutes(timeStr);
+      for(const range in day){
+        const [s,e] = range.split("-");
+        if(minutes >= toMinutes(s) && minutes < toMinutes(e)) return range;
+      }
+      return null;
+    }
 
-  overridesRef.on('value', snap => { overrides = snap.val() || {}; syncUI(); });
-  reservationsRef.on('value', snap => { reservations = snap.val() || {}; syncUI(); });
+    function baseFreeRooms(dateStr, slot){
+      const wd = weekdayName(dateStr);
+      const day = schedule[wd] || {};
+      const base = day[slot] || "";
+      return base.split(",").map(s=>s.trim()).filter(Boolean);
+    }
 
-  // ----------------- ui bindings -----------------
-  const liveDate = document.getElementById('liveDate');
-  const liveTime = document.getElementById('liveTime');
-  const pianoOnlyLive = document.getElementById('pianoOnlyLive');
-  const freeRoomsList = document.getElementById('freeRoomsList');
-  const liveActions = document.getElementById('liveActions');
-  const lastSync = document.getElementById('lastSync');
+    function applyOverridesAndReservations(dateStr, slot, rooms){
+      let r = rooms.slice();
+      const o = overridesCache?.[dateStr]?.[slot] || {};
+      for(const room in o){
+        if(o[room] === "frei"){
+          if(!r.includes(room)) r.push(room);
+        } else if(o[room] === "belegt"){
+          r = r.filter(x => x !== room);
+        }
+      }
+      const res = reservationsCache?.[dateStr]?.[slot] || [];
+      res.forEach(it => { r = r.filter(x => x !== it.room); });
+      return r;
+    }
 
-  const searchDate = document.getElementById('searchDate');
-  const startTime = document.getElementById('startTime');
-  const endTime = document.getElementById('endTime');
-  const pianoOnlySearch = document.getElementById('pianoOnlySearch');
-  const btnCheckWindow = document.getElementById('btnCheckWindow');
-  const btnShowSchedule = document.getElementById('btnShowSchedule');
-  const searchResult = document.getElementById('searchResult');
+    // ------------------- UI ELEMENTS -------------------
+    const el = {
+      liveDate: document.getElementById("liveDate"),
+      liveTime: document.getElementById("liveTime"),
+      filterPianoLive: document.getElementById("filterPianoLive"),
+      liveFree: document.getElementById("liveFree"),
+      liveRoomList: document.getElementById("liveRoomList"),
+      lastSync: document.getElementById("lastSync"),
 
-  const singleDate = document.getElementById('singleDate');
-  const singleTime = document.getElementById('singleTime');
-  const pianoOnlySingle = document.getElementById('pianoOnlySingle');
-  const btnManualCheck = document.getElementById('btnManualCheck');
-  const manualResult = document.getElementById('manualResult');
+      singleDate: document.getElementById("singleDate"),
+      singleTime: document.getElementById("singleTime"),
+      filterPianoSingle: document.getElementById("filterPianoSingle"),
+      btnManualCheck: document.getElementById("btnManualCheck"),
+      manualResult: document.getElementById("manualResult"),
 
-  const reserveDate = document.getElementById('reserveDate');
-  const reserveSlot = document.getElementById('reserveSlot');
-  const reserveRoom = document.getElementById('reserveRoom');
-  const yourName = document.getElementById('yourName');
-  const btnReserve = document.getElementById('btnReserve');
-  const btnMarkFree = document.getElementById('btnMarkFree');
-  const btnMarkTaken = document.getElementById('btnMarkTaken');
-  const reserveNotice = document.getElementById('reserveNotice');
-  const dayPlan = document.getElementById('dayPlan');
+      reserveDate: document.getElementById("reserveDate"),
+      reserveSlot: document.getElementById("reserveSlot"),
+      reserveRoom: document.getElementById("reserveRoom"),
+      reserveName: document.getElementById("reserveName"),
+      btnReserve: document.getElementById("btnReserve"),
+      btnOverrideFree: document.getElementById("btnOverrideFree"),
+      btnOverrideTaken: document.getElementById("btnOverrideTaken"),
+      reserveNotice: document.getElementById("reserveNotice"),
 
-  // build canonical 30-min slots from 07:00 to 22:00
-  const canonicalSlots = [];
-  for(let h=7; h<22; h++){
-    const m1 = (h).toString().padStart(2,'0')+':00';
-    const m2 = (h).toString().padStart(2,'0')+':30';
-    const m3 = (h+1).toString().padStart(2,'0')+':00';
-    canonicalSlots.push(`${m1}-${m2}`);
-    canonicalSlots.push(`${m2}-${m3}`);
-  }
-  canonicalSlots.forEach(s => {
-    const opt = document.createElement('option'); opt.value = s; opt.textContent = s; reserveSlot.appendChild(opt);
-  });
+      windowDate: document.getElementById("windowDate"),
+      windowStart: document.getElementById("windowStart"),
+      windowEnd: document.getElementById("windowEnd"),
+      filterPianoWindow: document.getElementById("filterPianoWindow"),
+      btnCheckWindow: document.getElementById("btnCheckWindow"),
+      windowResult: document.getElementById("windowResult"),
 
-  // defaults: today
-  const todayStr = new Date().toISOString().split('T')[0];
-  liveDate.value = todayStr; searchDate.value = todayStr; singleDate.value = todayStr; reserveDate.value = todayStr;
-  liveTime.value = new Date().toTimeString().slice(0,5);
+      dayPlan: document.getElementById("dayPlan"),
+      btnShowDayPlan: document.getElementById("btnShowDayPlan")
+    };
 
-  // ----- core functions -----
-  function getBaseFreeRoomsForSlot(dateKey, slotRange){
-    const weekday = weekdayFromDateKey(dateKey);
-    const daySchedule = schedule[weekday] || {};
-    const base = daySchedule[slotRange] || '';
-    return base.split(',').map(s=>s.trim()).filter(Boolean);
-  }
+    // populate slots select (30-min from 07:00 to 22:00)
+    const canonicalSlots = [];
+    for(let h=7; h<22; h++){
+      const m1 = `${String(h).padStart(2,'0')}:00`;
+      const m2 = `${String(h).padStart(2,'0')}:30`;
+      const m3 = `${String(h+1).padStart(2,'0')}:00`;
+      canonicalSlots.push(`${m1}-${m2}`, `${m2}-${m3}`);
+    }
+    canonicalSlots.forEach(s => {
+      const o = document.createElement("option");
+      o.value = s; o.textContent = s; el.reserveSlot.appendChild(o);
+    });
 
-  function applyOverridesAndReservations(dateKey, slotRange, roomsList){
-    let rooms = roomsList.slice();
-    const o = overrides?.[dateKey]?.[slotRange];
-    if(o){
-      for(const r in o){
-        if(o[r] === 'frei'){ if(!rooms.includes(r)) rooms.push(r); }
-        else if(o[r] === 'belegt'){ rooms = rooms.filter(x => x !== r); }
+    // defaults
+    const today = new Date().toISOString().split("T")[0];
+    el.liveDate.value = today; el.singleDate.value = today; el.reserveDate.value = today; el.windowDate.value = today;
+    el.liveTime.value = new Date().toTimeString().slice(0,5);
+
+    // ------------------- Firebase listeners -------------------
+    const overridesRef = ref(db, "overrides");
+    const reservationsRef = ref(db, "reservations");
+
+    // keep caches in sync
+    onValue(overridesRef, snapshot => {
+      overridesCache = snapshot.val() || {};
+      renderAll(); // update UI
+    }, error => {
+      console.error("overrides read error", error);
+    });
+
+    onValue(reservationsRef, snapshot => {
+      reservationsCache = snapshot.val() || {};
+      renderAll();
+    }, error => {
+      console.error("reservations read error", error);
+    });
+
+    // ------------------- Render / UI functions -------------------
+    function renderLive(){
+      const date = el.liveDate.value;
+      const time = el.liveTime.value;
+      el.lastSync = document.getElementById("lastSync");
+      el.lastSync.textContent = new Date().toLocaleTimeString();
+      el.liveRoomList.innerHTML = "";
+
+      if(!date || !time) { el.liveFree.textContent = "Bitte Datum & Uhrzeit wählen"; return; }
+
+      const slot = findSlotForTime(date, time);
+      if(!slot){ el.liveFree.textContent = "Außerhalb der Öffnungszeiten"; return; }
+
+      let list = baseFreeRooms(date, slot);
+      list = applyOverridesAndReservations(date, slot, list);
+      if(el.filterPianoLive.checked) list = list.filter(r => hasPiano[r]);
+
+      el.liveFree.textContent = list.length ? `Jetzt frei: ${list.join(", ")}` : "Keine Räume frei";
+      list.forEach(r => {
+        const span = document.createElement("span");
+        span.className = "room-pill";
+        span.textContent = r;
+        span.onclick = () => {
+          // prefill reserve form
+          el.reserveDate.value = date;
+          el.reserveSlot.value = slot;
+          el.reserveRoom.value = r;
+          el.reserveNotice.textContent = `Vorauswahl: ${r} • ${date} ${slot}`;
+        };
+        el.liveRoomList.appendChild(span);
+      });
+    }
+
+    function renderDayPlan(){
+      const d = el.reserveDate.value || today;
+      const wd = weekdayName(d);
+      const daySched = schedule[wd] || {};
+      let html = "";
+      for(const range in daySched){
+        const baseRooms = (daySched[range]||"").split(",").map(x=>x.trim()).filter(Boolean);
+        const o = overridesCache?.[d]?.[range] || {};
+        const res = reservationsCache?.[d]?.[range] || [];
+        const baseHtml = baseRooms.map(r => `<span class="room-pill">${r}</span>`).join(" ");
+        html += `<div style="margin-bottom:8px"><strong>${range}</strong>: ${baseHtml}`;
+        if(Object.keys(o).length){
+          html += `<div class="small muted">Overrides: ${Object.entries(o).map(([rr,s])=>rr+':'+s).join(', ')}</div>`;
+        }
+        if(res.length){
+          html += `<div class="small muted">Reserviert: ${res.map(x=>x.room+" ("+x.user+")").join(', ')}</div>`;
+        }
+        html += `</div>`;
+      }
+      el.dayPlan.innerHTML = html || "Kein Plan für diesen Wochentag.";
+    }
+
+    function renderAll(){
+      renderLive();
+      renderDayPlan();
+    }
+
+    // ------------------- User actions (writes) -------------------
+    // Reserve: push to /reservations/{date}/{slot} (array stored as object)
+    async function doReserve(){
+      const date = el.reserveDate.value;
+      const slot = el.reserveSlot.value;
+      const room = (el.reserveRoom.value||"").trim().toUpperCase();
+      const user = (el.reserveName.value||"").trim() || "anonym";
+      if(!date || !slot || !room){ el.reserveNotice.textContent = "Bitte Datum, Slot und Raum wählen"; return; }
+
+      try{
+        const node = child(ref(db), `reservations/${date}/${slot}`);
+        const snap = await get(node);
+        const list = snap.exists() ? (snap.val() || []) : [];
+        // ensure unique by room
+        if(list.find(x => x.room === room)){
+          el.reserveNotice.textContent = "Dieser Raum ist bereits reserviert für den Slot.";
+          return;
+        }
+        list.push({ room, user, ts: Date.now() });
+        await set(node, list);
+        el.reserveNotice.textContent = "Reservierung erfolgreich.";
+      }catch(err){
+        console.error("reserve error", err);
+        el.reserveNotice.textContent = "Fehler beim Reservieren (Konsole prüfen).";
       }
     }
-    const resList = reservations?.[dateKey]?.[slotRange] || [];
-    resList.forEach(rObj => { rooms = rooms.filter(x => x !== rObj.room); });
-    return rooms;
-  }
 
-  function findSlotForTime(dateKey, timeStr){
-    const weekday = weekdayFromDateKey(dateKey);
-    const entries = schedule[weekday] || {};
-    const minutes = toMinutes(timeStr);
-    for(const range in entries){
-      const [s,e] = range.split('-');
-      if(minutes >= toMinutes(s) && minutes < toMinutes(e)) return range;
+    // set override: /overrides/{date}/{slot}/{room} = 'frei'|'belegt'
+    async function doSetOverride(state){
+      const date = el.reserveDate.value;
+      const slot = el.reserveSlot.value;
+      const room = (el.reserveRoom.value||"").trim().toUpperCase();
+      if(!date || !slot || !room){ el.reserveNotice.textContent = "Bitte Datum, Slot und Raum wählen"; return; }
+      try{
+        const path = `overrides/${date}/${slot}/${room}`;
+        await set(child(ref(db), path), state);
+        el.reserveNotice.textContent = `Override gesetzt: ${room} → ${state}`;
+      }catch(err){
+        console.error("override error", err);
+        el.reserveNotice.textContent = "Fehler beim Setzen des Overrides.";
+      }
     }
-    return null;
-  }
 
-  // render live panel
-  function renderLive(){
-    const dateKey = dateKeyFromInput(liveDate.value);
-    const timeStr = liveTime.value;
-    const slot = findSlotForTime(dateKey, timeStr);
-    lastSync.textContent = new Date().toLocaleTimeString();
-    liveActions.innerHTML = '';
-    if(!slot){ freeRoomsList.textContent = 'Außerhalb der Öffnungszeiten'; return; }
-    let rooms = getBaseFreeRoomsForSlot(dateKey, slot);
-    rooms = applyOverridesAndReservations(dateKey, slot, rooms);
-    if(pianoOnlyLive.checked) rooms = rooms.filter(r => pianoRooms[r]);
-    if(rooms.length === 0){ freeRoomsList.textContent = 'Keine Räume frei'; return; }
-    freeRoomsList.innerHTML = `${rooms.length} Raum/Räume frei`;
-    rooms.forEach(r => {
-      const span = document.createElement('span'); span.className='room-pill'; span.textContent = r;
-      span.onclick = () => { openReserveQuick(dateKey, slot, r); };
-      liveActions.appendChild(span);
-    });
-  }
-
-  function openReserveQuick(dateKey, slotRange, room){
-    reserveDate.value = dateKey; reserveSlot.value = slotRange; reserveRoom.value = room;
-    reserveNotice.textContent = `Bereit: ${room} am ${dateKey} ${slotRange}`;
-  }
-
-  // time window -> intersection
-  function checkTimeWindow(){
-    const dateKey = dateKeyFromInput(searchDate.value); const s = startTime.value; const e = endTime.value; const pianoOnly = pianoOnlySearch.checked;
-    if(!dateKey || !s || !e){ searchResult.textContent = 'Bitte Datum und Start/Endzeit wählen'; return; }
-    const startMin = toMinutes(s); const endMin = toMinutes(e);
-    if(startMin >= endMin){ searchResult.textContent = 'Endzeit muss nach Startzeit liegen'; return; }
-    const entries = schedule[weekdayFromDateKey(dateKey)] || {};
-    let common = null;
-    for(const range in entries){
-      const [rs,re] = range.split('-'); const rsm = toMinutes(rs); const rem = toMinutes(re);
-      if(rem <= startMin || rsm >= endMin) continue;
-      let rooms = getBaseFreeRoomsForSlot(dateKey, range);
-      rooms = applyOverridesAndReservations(dateKey, range, rooms);
-      if(pianoOnly) rooms = rooms.filter(r=>pianoRooms[r]);
-      if(common === null) common = new Set(rooms); else common = new Set(rooms.filter(x => common.has(x)));
+    // ------------------- Queries (reads) -------------------
+    function doManualCheck(){
+      const date = el.singleDate.value;
+      const time = el.singleTime.value;
+      if(!date || !time){ el.manualResult.textContent = "Bitte Datum & Uhrzeit wählen"; return; }
+      const slot = findSlotForTime(date, time);
+      if(!slot){ el.manualResult.textContent = "Außerhalb der Öffnungszeiten"; return; }
+      let list = baseFreeRooms(date, slot);
+      list = applyOverridesAndReservations(date, slot, list);
+      if(el.filterPianoSingle.checked) list = list.filter(r => hasPiano[r]);
+      el.manualResult.textContent = list.length ? `Frei: ${list.join(", ")}` : "Keine Räume frei";
     }
-    const arr = common ? Array.from(common) : [];
-    searchResult.textContent = arr.length ? `Im Zeitraum komplett frei: ${arr.join(', ')}` : 'Keine Räume komplett frei';
-  }
 
-  // manual single check
-  function manualSingleCheck(){
-    const dateKey = dateKeyFromInput(singleDate.value); const t = singleTime.value; const pianoOnly = pianoOnlySingle.checked;
-    if(!dateKey || !t){ manualResult.textContent='Bitte Datum und Uhrzeit wählen'; return; }
-    const slot = findSlotForTime(dateKey, t);
-    if(!slot){ manualResult.textContent='Außerhalb der Öffnungszeiten'; return; }
-    let rooms = getBaseFreeRoomsForSlot(dateKey, slot);
-    rooms = applyOverridesAndReservations(dateKey, slot, rooms);
-    if(pianoOnly) rooms = rooms.filter(r=>pianoRooms[r]);
-    manualResult.textContent = rooms.length ? `Zu dieser Zeit frei: ${rooms.join(', ')}` : 'Keine Räume frei';
-  }
-
-  // reserve (append to /reservations)
-  async function reserveRoom(){
-    const dateKey = dateKeyFromInput(reserveDate.value); const slot = reserveSlot.value; const room = (reserveRoom.value||'').trim().toUpperCase(); const user = (yourName.value||'').trim() || 'anonym';
-    if(!dateKey || !slot || !room){ reserveNotice.textContent='Bitte Datum/Slot/Raum wählen'; return; }
-    const path = `reservations/${dateKey}/${slot}`;
-    const nodeRef = db.ref(path);
-    const snap = await nodeRef.once('value');
-    const list = snap.val() || [];
-    if(list.find(x=>x.room===room)) { reserveNotice.textContent = 'Raum bereits reserviert für diesen Slot'; return; }
-    const item = { room, user, ts: Date.now() };
-    list.push(item);
-    await nodeRef.set(list);
-    reserveNotice.textContent = 'Reservierung gespeichert';
-  }
-
-  // set override (frei/belegt)
-  async function setOverride(state){
-    const dateKey = dateKeyFromInput(reserveDate.value); const slot = reserveSlot.value; const room = (reserveRoom.value||'').trim().toUpperCase();
-    if(!dateKey || !slot || !room){ reserveNotice.textContent='Bitte Datum/Slot/Raum wählen'; return; }
-    const path = `overrides/${dateKey}/${slot}/${room}`;
-    await db.ref(path).set(state);
-    reserveNotice.textContent = `Override gesetzt: ${room} -> ${state}`;
-  }
-
-  // show day plan (weekly + overrides + reservations)
-  function showDayPlan(){
-    const d = reserveDate.value || todayStr; const weekday = weekdayFromDateKey(d);
-    const daySched = schedule[weekday] || {};
-    let html = '';
-    for(const range in daySched){
-      const base = daySched[range] || '';
-      const baseRooms = base.split(',').map(s=>s.trim()).filter(Boolean);
-      const o = (overrides?.[d]?.[range]) || {};
-      const res = (reservations?.[d]?.[range]) || [];
-      html += `<div style="margin-bottom:8px"><strong>${range}</strong>: `;
-      html += baseRooms.map(r=>`<span class="room-pill">${r}</span>`).join(' ');
-      if(Object.keys(o).length) html += `<div class="small muted">Overrides: ${Object.entries(o).map(([r,s])=>r+':'+s).join(', ')}</div>`;
-      if(res.length) html += `<div class="small muted">Reserviert: ${res.map(x=>x.room+"("+x.user+")").join(', ')}</div>`;
-      html += `</div>`;
+    function doWindowCheck(){
+      const date = el.windowDate.value;
+      const s = el.windowStart.value;
+      const e = el.windowEnd.value;
+      if(!date || !s || !e){ el.windowResult.textContent = "Bitte Datum, Start & Ende wählen"; return; }
+      const base = schedule[weekdayName(date)] || {};
+      const start = toMinutes(s), end = toMinutes(e);
+      if(start >= end){ el.windowResult.textContent = "Ende muss nach Start liegen"; return; }
+      let common = null;
+      for(const range in base){
+        const [rs,re] = range.split("-");
+        const r1 = toMinutes(rs), r2 = toMinutes(re);
+        if(r2 <= start || r1 >= end) continue;
+        let free = base[range].split(",").map(x=>x.trim()).filter(Boolean);
+        free = applyOverridesAndReservations(date, range, free);
+        if(el.filterPianoWindow.checked) free = free.filter(r => hasPiano[r]);
+        if(common === null) common = new Set(free); else common = new Set(free.filter(x => common.has(x)));
+      }
+      const arr = common ? Array.from(common) : [];
+      el.windowResult.textContent = arr.length ? `Komplett frei: ${arr.join(", ")}` : "Keine Räume komplett frei im Fenster";
     }
-    dayPlan.innerHTML = html || 'Kein Plan für diesen Wochentag.';
-  }
 
-  // sync UI on data change
-  function syncUI(){ renderLive(); showDayPlan(); lastSync.textContent = new Date().toLocaleTimeString(); }
+    // ------------------- Event bindings -------------------
+    el.liveDate.addEventListener("change", renderLive);
+    el.liveTime.addEventListener("change", renderLive);
+    el.filterPianoLive.addEventListener("change", renderLive);
 
-  // events
-  liveDate.addEventListener('change', renderLive); liveTime.addEventListener('change', renderLive); pianoOnlyLive.addEventListener('change', renderLive);
-  document.getElementById('btnCheckWindow').addEventListener('click', checkTimeWindow);
-  document.getElementById('btnShowSchedule').addEventListener('click', showDayPlan);
-  document.getElementById('btnManualCheck').addEventListener('click', manualSingleCheck);
-  document.getElementById('btnReserve').addEventListener('click', reserveRoom);
-  document.getElementById('btnMarkFree').addEventListener('click', ()=>setOverride('frei'));
-  document.getElementById('btnMarkTaken').addEventListener('click', ()=>setOverride('belegt'));
+    el.btnManualCheck.addEventListener("click", doManualCheck);
+    el.btnCheckWindow.addEventListener("click", doWindowCheck);
+    el.btnShowDayPlan.addEventListener("click", renderDayPlan);
 
-  // periodic refresh
-  setInterval(renderLive,15000);
-  // initial render
-  renderLive(); showDayPlan();
+    el.btnReserve.addEventListener("click", doReserve);
+    el.btnOverrideFree.addEventListener("click", () => doSetOverride("frei"));
+    el.btnOverrideTaken.addEventListener("click", () => doSetOverride("belegt"));
 
+    // periodic auto-update of live (in case time passes)
+    setInterval(renderLive, 15000);
+
+    // initial render
+    renderAll();
+
+    // Small helper: log if permission denied reading DB (to help debugging)
+    // (listeners above already print errors)
   </script>
 </body>
 </html>
