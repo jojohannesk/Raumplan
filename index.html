@@ -94,6 +94,35 @@
         <div id="reserveNotice" class="small" style="margin-top:8px">–</div>
       </div>
 
+      <hr style="margin-top:20px">
+
+<h4>Zeitraum reservieren</h4>
+
+<label>Datum</label>
+<input type="date" id="rangeDate">
+
+<div class="row" style="margin-top:8px">
+  <div style="flex:1">
+    <label>Start</label>
+    <input type="time" id="rangeStart" step="1800">
+  </div>
+  <div style="flex:1">
+    <label>Ende</label>
+    <input type="time" id="rangeEnd" step="1800">
+  </div>
+</div>
+
+<label style="margin-top:8px">Raum</label>
+<input type="text" id="rangeRoom" placeholder="z.B. R4">
+
+<label style="margin-top:8px">Dein Name</label>
+<input type="text" id="rangeName" placeholder="z.B. Lukas">
+
+<button id="btnReserveRange" style="margin-top:8px;background:#2a7">Zeitraum reservieren</button>
+
+<div id="rangeNotice" class="small" style="margin-top:8px">–</div>
+
+
       <!-- ZEITFENSTER & TAGESPLAN -->
       <div class="box">
         <h3>Zeitfenster prüfen</h3>
@@ -502,6 +531,72 @@
       }
     }
 
+    // Reserviert einen kompletten Zeitraum
+async function doReserveRange() {
+  const date = document.getElementById("rangeDate").value;
+  const startStr = document.getElementById("rangeStart").value;
+  const endStr = document.getElementById("rangeEnd").value;
+  const room = document.getElementById("rangeRoom").value.trim().toUpperCase();
+  const user = document.getElementById("rangeName").value.trim() || "anonym";
+
+  const notice = document.getElementById("rangeNotice");
+
+  if (!date || !startStr || !endStr || !room) {
+    notice.textContent = "Bitte alle Felder ausfüllen.";
+    return;
+  }
+
+  const start = toMinutes(startStr);
+  const end = toMinutes(endStr);
+
+  if (start >= end) {
+    notice.textContent = "Ende muss nach Start liegen.";
+    return;
+  }
+
+  // Finde alle betroffenen Slots
+  const slots = [];
+  for (const slot of canonicalSlots) {
+    const [s,e] = slot.split("-");
+    const sMin = toMinutes(s);
+    const eMin = toMinutes(e);
+
+    // Überschneidung prüfen
+    if (!(eMin <= start || sMin >= end)) {
+      slots.push(slot);
+    }
+  }
+
+  try {
+    for (const slot of slots) {
+      const node = child(ref(db), `reservations/${date}/${slot}`);
+      const snap = await get(node);
+      const list = snap.exists() ? snap.val() : [];
+
+      // Prüfen ob Raum schon belegt ist
+      if (list.find(x => x.room === room)) {
+        notice.textContent = `Fehler: Der Raum ${room} ist bereits im Slot ${slot} reserviert.`;
+        return;
+      }
+    }
+
+    // Wenn kein Konflikt → alle Slots reservieren
+    for (const slot of slots) {
+      const node = child(ref(db), `reservations/${date}/${slot}`);
+      const snap = await get(node);
+      const list = snap.exists() ? snap.val() : [];
+      list.push({ room, user, ts: Date.now() });
+      await set(node, list);
+    }
+
+    notice.textContent = `Zeitraum erfolgreich reserviert (${slots.length} Slots).`;
+
+  } catch (err) {
+    console.error("range reserve error", err);
+    notice.textContent = "Fehler beim Reservieren (Konsole prüfen).";
+  }
+}
+
     // set override: /overrides/{date}/{slot}/{room} = 'frei'|'belegt'
     async function doSetOverride(state){
       const date = el.reserveDate.value;
@@ -563,6 +658,7 @@
     el.btnShowDayPlan.addEventListener("click", renderDayPlan);
 
     el.btnReserve.addEventListener("click", doReserve);
+    document.getElementById("btnReserveRange").addEventListener("click", doReserveRange);
     el.btnOverrideFree.addEventListener("click", () => doSetOverride("frei"));
     el.btnOverrideTaken.addEventListener("click", () => doSetOverride("belegt"));
 
