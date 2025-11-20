@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Freie Räume – Live (Firebase)</title>
+  <style>
+    :root{--bg:#f4f6f8;--card:#fff;--accent:#2a7;--muted:#657;}
+    body{font-family:Inter,Arial,Helvetica,sans-serif;background:var(--bg);margin:0;padding:18px;display:flex;justify-content:center}
+    .wrap{max-width:980px;width:100%}
+    header{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+    h1{margin:0;font-size:22px}
+    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+    .box{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 6px 18px rgba(12,20,30,0.06)}
+    label{font-size:13px;color:var(--muted)}
+    select,input[type="time"],input[type="date"],input[type="text"]{display:block;width:100%;padding:8px;border-radius:8px;border:1px solid #e6e9ee;margin-top:6px}
+    .small{font-size:13px;color:var(--muted);margin-top:6px}
+    button{background:var(--accent);color:white;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+    .muted{color:var(--muted)}
+    #freeRoomsList{font-weight:700;color:var(--accent);margin-top:8px}
+    .row{display:flex;gap:8px;align-items:center}
+    .room-pill{display:inline-block;padding:6px 8px;border-radius:999px;background:#f1f9f1;border:1px solid #e6f3ea;margin:4px;cursor:pointer}
+    .room-pill.disabled{opacity:0.45;background:#fff2f2;border-color:#ffdfdf}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .notice{font-size:13px;color:var(--muted);margin-top:8px}
+    hr{border:none;border-top:1px solid #eee;margin:12px 0}
+    @media (max-width:820px){.grid{grid-template-columns:1fr}header{flex-direction:column;align-items:flex-start}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Freie Räume – Live (mit Reservierungen)</h1>
+      <div class="muted">(Ohne Login · Realtime DB: freiraume)</div>
+    </header>
+
+    <div class="grid">
+      <!-- LIVE PANEL -->
+      <div class="box">
+        <h3>Live-Anzeige</h3>
+        <div class="row">
+          <div style="flex:1">
+            <label for="liveDate">Datum</label>
+            <input type="date" id="liveDate">
+          </div>
+          <div style="width:140px">
+            <label for="liveTime">Uhrzeit</label>
+            <input type="time" id="liveTime" step="60">
+          </div>
+        </div>
+
+        <div style="margin-top:8px" class="row">
+          <label><input type="checkbox" id="pianoOnlyLive"> Nur Räume mit Flügel</label>
+          <label style="margin-left:auto" class="small">Letzte Aktualisierung: <span id="lastSync">–</span></label>
+        </div>
+
+        <div id="freeRoomsList" class="small">–</div>
+        <div class="actions" id="liveActions"></div>
+        <div class="notice">Klicke auf einen Raum, um ihn vorzubelegen (Reservierung) oder um im Reservierungsformular vorzubefüllen.</div>
+      </div>
+
+      <!-- SEARCH/TOOLS -->
+      <div class="box">
+        <h3>Suche & Zeitfenster</h3>
+        <label for="searchDate">Datum</label>
+        <input type="date" id="searchDate">
+
+        <div class="row" style="margin-top:8px">
+          <div style="flex:1">
+            <label for="startTime">Startzeit</label>
+            <input type="time" id="startTime" step="1800">
+          </div>
+          <div style="width:140px">
+            <label for="endTime">Endzeit</label>
+            <input type="time" id="endTime" step="1800">
+          </div>
+        </div>
+
+        <div style="margin-top:8px">
+          <label><input type="checkbox" id="pianoOnlySearch"> Nur Räume mit Flügel</label>
+        </div>
+
+        <div style="margin-top:10px" class="row">
+          <button id="btnCheckWindow">Zeitfenster prüfen</button>
+          <button id="btnShowSchedule" style="background:#5578ff">Zeige Tagesplan</button>
+        </div>
+
+        <div id="searchResult" class="small" style="margin-top:12px">–</div>
+
+        <hr>
+
+        <h4>Manuelle Einzelabfrage</h4>
+        <div class="row">
+          <div style="flex:1">
+            <label for="singleDate">Datum</label>
+            <input type="date" id="singleDate">
+          </div>
+          <div style="width:140px">
+            <label for="singleTime">Uhrzeit</label>
+            <input type="time" id="singleTime" step="1800">
+          </div>
+        </div>
+        <div style="margin-top:8px">
+          <label><input type="checkbox" id="pianoOnlySingle"> Nur Räume mit Flügel</label>
+        </div>
+        <div style="margin-top:8px" class="row">
+          <button id="btnManualCheck">Prüfen</button>
+          <div id="manualResult" class="small" style="margin-left:8px">–</div>
+        </div>
+      </div>
+
+      <!-- RESERVIERUNG & OVERRIDES (full width) -->
+      <div class="box" style="grid-column:1 / -1">
+        <h3>Reservieren / Overrides</h3>
+        <div class="row">
+          <div style="flex:1">
+            <label for="reserveDate">Datum</label>
+            <input type="date" id="reserveDate">
+          </div>
+          <div style="width:160px">
+            <label for="reserveSlot">Zeitslot</label>
+            <select id="reserveSlot"></select>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:8px">
+          <div style="flex:1">
+            <label for="reserveRoom">Raum (z. B. R4)</label>
+            <input type="text" id="reserveRoom" placeholder="R4">
+          </div>
+          <div style="width:160px">
+            <label for="yourName">Dein Name</label>
+            <input type="text" id="yourName" placeholder="z. B. Lukas">
+          </div>
+        </div>
+
+        <div style="margin-top:8px" class="row">
+          <button id="btnReserve">Reservieren</button>
+          <button id="btnMarkFree" style="background:#2a7;">Override: Dann frei</button>
+          <button id="btnMarkTaken" style="background:#ff6b6b">Override: Dann belegt</button>
+        </div>
+
+        <div id="reserveNotice" class="small" style="margin-top:8px">–</div>
+
+        <hr>
+        <h4>Tagesplan (Weekly Basis + Overrides/Reservierungen)</h4>
+        <div id="dayPlan" class="small">Lade...</div>
+      </div>
+    </div>
+
+    <div style="height:18px"></div>
+  </div>
+
+  <!-- Firebase (compat build for easy single-file usage) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+  <script>
+  // ================== YOUR FIREBASE CONFIG (eingebaut) ==================
+  const firebaseConfig = {
+    apiKey: "AIzaSyAeqhQhTayYp4T7BIHRxn8iGPLaM0bqy5o",
+    authDomain: "freieraume.firebaseapp.com",
+    databaseURL: "https://freieraume-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "freieraume",
+    storageBucket: "freieraume.firebasestorage.app",
+    messagingSenderId: "990554662786",
+    appId: "1:990554662786:web:0849d2e4858ab83fead19b",
+    measurementId: "G-QTZN90B1NN"
+  };
+  // ======================================================================
+
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // ----------------- SCHEDULE (weekly) -----------------
+  // This is the schedule content copied from your original file (Mon-Fri).
+  // Keys are English weekday names to match new Date(...).toLocaleDateString('en-US',{weekday:'long'})
+  const schedule = {
+  "Monday": {
+    "09:00-09:30": "R4, R5, R11, R12, R13, R16, R17",
+    "09:30-10:00": "R4, R5, R11, R12, R13, R16, R17",
+    "10:00-10:30": "R4, R5, R11, R12, R13, R16, R17",
+    "10:30-11:00": "R4, R5, R11, R12, R13, R16, R17",
+    "11:00-11:30": "R4, R5, R11, R12, R13, R16, R17",
+    "11:30-12:00": "R4, R5, R11, R12, R13, R16, R17",
+    "12:00-12:30": "R4, R5, R11, R12, R13, R16, R17",
+    "12:30-13:00": "R4, R5, R11, R12, R13, R15, R16, R17",
+    "13:00-13:30": "R4, R5, R11, R12, R13, R15, R16, R17",
+    "13:30-14:00": "R4, R5, R11, R13, R15, R17",
+    "14:00-14:30": "R4, R5, R13, R15, R16, R17",
+    "14:30-15:00": "R5, R13, R15, R17",
+    "15:00-15:30": "R5, R13, R15, R17",
+    "15:30-16:00": "R5, R13, R15, R17",
+    "16:00-16:30": "R5, R13, R17",
+    "16:30-17:00": "R5, R17",
+    "17:00-17:30": "R5, R17",
+    "17:30-18:00": "R5, R15, R17",
+    "18:00-18:30": "R5, R15, R16, R17",
+    "18:30-19:00": "R5, R11, R12, R15, R16, R17",
+    "19:00-19:30": "R5, R11, R13, R15, R16, R17",
+    "19:30-20:00": "R5, R11, R13, R15, R16, R17",
+    "20:00-20:30": "R5, R11, R13, R15, R16, R17",
+    "20:30-21:00": "R5, R11, R12, R13, R15, R16, R17",
+    "21:00-21:30": "R4, R5, R11, R12, R13, R15, R16, R17",
+    "21:30-22:00": "R4, R5, R11, R12, R13, R15, R16, R17"
+  },
+  "Tuesday": {
+    "09:00-09:30": "R4, R5, R11, R12, R13, R16, R17",
+    "09:30-10:00": "R4, R5, R11, R12, R13, R16, R17",
+    "10:00-10:30": "R4, R5, R11, R12, R13, R16, R17",
+    "10:30-11:00": "R5, R11, R12, R13, R16, R17",
+    "11:00-11:30": "R5, R11, R12, R13, R16, R17",
+    "11:30-12:00": "R5, R11, R12, R13, R16, R17",
+    "12:00-12:30": "R4, R5, R11, R12, R13, R16, R17",
+    "12:30-13:00": "R4, R5, R11, R12, R13, R15, R16, R17",
+    "13:00-13:30": "R4, R5, R12, R13, R15, R16, R17",
+    "13:30-14:00": "R4, R5, R13, R15, R16, R17",
+    "14:00-14:30": "R4, R5, R13, R15, R16, R17",
+    "14:30-15:00": "R4, R5, R13, R15, R17",
+    "15:00-15:30": "R4, R13, R15, R17",
+    "15:30-16:00": "R4, R13, R15, R17",
+    "16:00-16:30": "R4, R13, R15, R17",
+    "16:30-17:00": "R4, R13, R15, R17",
+    "17:00-17:30": "R4, R13, R15, R17",
+    "17:30-18:00": "R4, R5, R13, R15, R17",
+    "18:00-18:30": "R4, R5, R11, R13, R15, R17",
+    "18:30-19:00": "R5, R11, R13, R15, R16, R17",
+    "19:00-19:30": "R5, R11, R13, R15, R16",
+    "19:30-20:00": "R5, R11, R12, R13, R15, R16",
+    "20:00-20:30": "R5, R11, R12, R13, R15, R16",
+    "20:30-21:00": "R5, R11, R12, R13, R15, R16, R17",
+    "21:00-21:30": "R5, R11, R12, R13, R15, R16, R17",
+    "21:30-22:00": "R5, R11, R12, R13, R15, R16, R17"
+  },
+  "Wednesday": {
+    "09:00-09:30": "R4, R11, R12, R13, R16, R17",
+    "09:30-10:00": "R4, R11, R12, R13, R16, R17",
+    "10:00-10:30": "R4, R11, R12, R13, R16, R17",
+    "10:30-11:00": "R4, R11, R12, R13, R16, R17",
+    "11:00-11:30": "R4, R5, R11, R12, R13, R16, R17",
+    "11:30-12:00": "R4, R5, R11, R12, R13, R16, R17",
+    "12:00-12:30": "R4, R5, R11, R12, R13, R16, R17",
+    "12:30-13:00": "R4, R11, R12, R13, R16, R17",
+    "13:00-13:30": "R4, R16",
+    "13:30-14:00": "R4, R5, R16",
+    "14:00-14:30": "R4, R5, R16",
+    "14:30-15:00": "R4, R5",
+    "15:00-15:30": "R4",
+    "15:30-16:00": "R4",
+    "16:00-16:30": "",
+    "16:30-17:00": "",
+    "17:00-17:30": "",
+    "17:30-18:00": "R5",
+    "18:00-18:30": "R4",
+    "18:30-19:00": "R4, R12, R15, R16",
+    "19:00-19:30": "R4, R11, R12, R13, R16, R17",
+    "19:30-20:00": "R4, R11, R12, R13, R16, R17",
+    "20:00-20:30": "R4, R11, R12, R13, R16, R17",
+    "20:30-21:00": "R11, R12, R13, R15, R16, R17",
+    "21:00-21:30": "R11, R12, R13, R15, R16, R17",
+    "21:30-22:00": "R11, R12, R13, R15, R16, R17"
+  },
+  "Thursday": {
+    "09:00-09:30": "R4, R5, R11, R12, R13, R15, R16, R17",
+    "09:30-10:00": "R4, R5, R11, R12, R13, R15, R16, R17",
+    "10:00-10:30": "R4, R5,R11, R12, R13, R16, R17",
+    "10:30-11:00": "R4, R5, R11, R12, R13, R16, R17",
+    "11:00-11:30": "R4, R5, R11, R12, R13, R16, R17",
+    "11:30-12:00": "R4, R5, R11, R12, R13, R16, R17",
+    "12:00-12:30": "R4, R5, R11, R12, R13, R16, R17",
+    "12:30-13:00": "R4, R5, R11, R13, R16, R17",
+    "13:00-13:30": "R4, R5, R11, R16, R17",
+    "13:30-14:00": "R4, R5, R11, R16, R17",
+    "14:00-14:30": "R4, R5, R16, R17",
+    "14:30-15:00": "R4, R5, R17",
+    "15:00-15:30": "R5, R17",
+    "15:30-16:00": "R5, R17",
+    "16:00-16:30": "R5, R17",
+    "16:30-17:00": "R5, R17",
+    "17:00-17:30": "R5, R17",
+    "17:30-18:00": "R5, R17",
+    "18:00-18:30": "R5, R12, R17",
+    "18:30-19:00": "R5, R12, R16, R17",
+    "19:00-19:30": "R5, R11, R12, R13, R16, R17",
+    "19:30-20:00": "R5, R11, R12, R13, R16, R17",
+    "20:00-20:30": "R4, R5, R11, R12, R13, R16, R17",
+    "20:30-21:00": "R5, R11, R12, R13, R16, R17",
+    "21:00-21:30": "R5, R11, R12, R13, R16, R17",
+    "21:30-22:00": "R5, R11, R12, R13, R16, R17"
+  },
+  "Friday": {
+    "09:00-09:30": "R4, R11, R12, R13, R15, R16, R17",
+    "09:30-10:00": "R4, R11, R12, R13, R15, R16, R17",
+    "10:00-10:30": "R4, R11, R12, R13, R15, R16, R17",
+    "10:30-11:00": "R4, R11, R12, R13, R15, R16, R17",
+    "11:00-11:30": "R4, R11, R12, R13, R15, R16, R17",
+    "11:30-12:00": "R4, R5, R11, R12, R13, R15, R16, R17",
+    "12:00-12:30": "R4, R5, R11, R12, R16, R17",
+    "12:30-13:00": "R4, R5, R12, R17",
+    "13:00-13:30": "R4, R5, R12, R17",
+    "13:30-14:00": "R4, R5, R12, R17",
+    "14:00-14:30": "R4, R12, R17",
+    "14:30-15:00": "R12, R17",
+    "15:00-15:30": "R17",
+    "15:30-16:00": "R17",
+    "16:00-16:30": "R5, R12, R17",
+    "16:30-17:00": "R5, R12, R17",
+    "17:00-17:30": "R5, R12, R17",
+    "17:30-18:00": "R5, R12, R17",
+    "18:00-18:30": "R5, R12, R17",
+    "18:30-19:00": "R5, R11, R12, R17",
+    "19:00-19:30": "R5, R11, R12, R13, R17",
+    "19:30-20:00": "R5, R11, R12, R13, R17",
+    "20:00-20:30": "R5, R11, R12, R13, R16, R17",
+    "20:30-21:00": "R5, R11, R12, R13, R16, R17",
+    "21:00-21:30": "R4, R5, R11, R12, R13, R16, R17",
+    "21:30-22:00": "R4, R5, R11, R12, R13, R16, R17"
+  }
+  }; // end schedule
+
+  // ----------------- piano mapping -----------------
+  const pianoRooms = {
+    "R4": true,
+    "R5": false,
+    "R11": true,
+    "R12": false,
+    "R13": true,
+    "R15": false,
+    "R16": false,
+    "R17": false
+  };
+
+  // ----------------- local caches -----------------
+  let overrides = {};     // overrides["YYYY-MM-DD"]["HH:MM-HH:MM"] = { R4: 'frei'|'belegt' }
+  let reservations = {};  // reservations["YYYY-MM-DD"]["HH:MM-HH:MM"] = [ { room, user, ts } ]
+
+  // ----------------- helpers -----------------
+  function toMinutes(t){ if(!t) return 0; const [h,m]=t.split(":").map(Number); return h*60+m; }
+  function dateKeyFromInput(val){ if(!val) return null; return val; } // val is yyyy-mm-dd
+  function weekdayFromDateKey(dateKey){ const d = new Date(dateKey + 'T00:00'); return d.toLocaleDateString('en-US',{weekday:'long'}); }
+
+  // ----------------- firebase refs & listeners -----------------
+  const overridesRef = db.ref('overrides');
+  const reservationsRef = db.ref('reservations');
+
+  overridesRef.on('value', snap => { overrides = snap.val() || {}; syncUI(); });
+  reservationsRef.on('value', snap => { reservations = snap.val() || {}; syncUI(); });
+
+  // ----------------- ui bindings -----------------
+  const liveDate = document.getElementById('liveDate');
+  const liveTime = document.getElementById('liveTime');
+  const pianoOnlyLive = document.getElementById('pianoOnlyLive');
+  const freeRoomsList = document.getElementById('freeRoomsList');
+  const liveActions = document.getElementById('liveActions');
+  const lastSync = document.getElementById('lastSync');
+
+  const searchDate = document.getElementById('searchDate');
+  const startTime = document.getElementById('startTime');
+  const endTime = document.getElementById('endTime');
+  const pianoOnlySearch = document.getElementById('pianoOnlySearch');
+  const btnCheckWindow = document.getElementById('btnCheckWindow');
+  const btnShowSchedule = document.getElementById('btnShowSchedule');
+  const searchResult = document.getElementById('searchResult');
+
+  const singleDate = document.getElementById('singleDate');
+  const singleTime = document.getElementById('singleTime');
+  const pianoOnlySingle = document.getElementById('pianoOnlySingle');
+  const btnManualCheck = document.getElementById('btnManualCheck');
+  const manualResult = document.getElementById('manualResult');
+
+  const reserveDate = document.getElementById('reserveDate');
+  const reserveSlot = document.getElementById('reserveSlot');
+  const reserveRoom = document.getElementById('reserveRoom');
+  const yourName = document.getElementById('yourName');
+  const btnReserve = document.getElementById('btnReserve');
+  const btnMarkFree = document.getElementById('btnMarkFree');
+  const btnMarkTaken = document.getElementById('btnMarkTaken');
+  const reserveNotice = document.getElementById('reserveNotice');
+  const dayPlan = document.getElementById('dayPlan');
+
+  // build canonical 30-min slots from 07:00 to 22:00
+  const canonicalSlots = [];
+  for(let h=7; h<22; h++){
+    const m1 = (h).toString().padStart(2,'0')+':00';
+    const m2 = (h).toString().padStart(2,'0')+':30';
+    const m3 = (h+1).toString().padStart(2,'0')+':00';
+    canonicalSlots.push(`${m1}-${m2}`);
+    canonicalSlots.push(`${m2}-${m3}`);
+  }
+  canonicalSlots.forEach(s => {
+    const opt = document.createElement('option'); opt.value = s; opt.textContent = s; reserveSlot.appendChild(opt);
+  });
+
+  // defaults: today
+  const todayStr = new Date().toISOString().split('T')[0];
+  liveDate.value = todayStr; searchDate.value = todayStr; singleDate.value = todayStr; reserveDate.value = todayStr;
+  liveTime.value = new Date().toTimeString().slice(0,5);
+
+  // ----- core functions -----
+  function getBaseFreeRoomsForSlot(dateKey, slotRange){
+    const weekday = weekdayFromDateKey(dateKey);
+    const daySchedule = schedule[weekday] || {};
+    const base = daySchedule[slotRange] || '';
+    return base.split(',').map(s=>s.trim()).filter(Boolean);
+  }
+
+  function applyOverridesAndReservations(dateKey, slotRange, roomsList){
+    let rooms = roomsList.slice();
+    const o = overrides?.[dateKey]?.[slotRange];
+    if(o){
+      for(const r in o){
+        if(o[r] === 'frei'){ if(!rooms.includes(r)) rooms.push(r); }
+        else if(o[r] === 'belegt'){ rooms = rooms.filter(x => x !== r); }
+      }
+    }
+    const resList = reservations?.[dateKey]?.[slotRange] || [];
+    resList.forEach(rObj => { rooms = rooms.filter(x => x !== rObj.room); });
+    return rooms;
+  }
+
+  function findSlotForTime(dateKey, timeStr){
+    const weekday = weekdayFromDateKey(dateKey);
+    const entries = schedule[weekday] || {};
+    const minutes = toMinutes(timeStr);
+    for(const range in entries){
+      const [s,e] = range.split('-');
+      if(minutes >= toMinutes(s) && minutes < toMinutes(e)) return range;
+    }
+    return null;
+  }
+
+  // render live panel
+  function renderLive(){
+    const dateKey = dateKeyFromInput(liveDate.value);
+    const timeStr = liveTime.value;
+    const slot = findSlotForTime(dateKey, timeStr);
+    lastSync.textContent = new Date().toLocaleTimeString();
+    liveActions.innerHTML = '';
+    if(!slot){ freeRoomsList.textContent = 'Außerhalb der Öffnungszeiten'; return; }
+    let rooms = getBaseFreeRoomsForSlot(dateKey, slot);
+    rooms = applyOverridesAndReservations(dateKey, slot, rooms);
+    if(pianoOnlyLive.checked) rooms = rooms.filter(r => pianoRooms[r]);
+    if(rooms.length === 0){ freeRoomsList.textContent = 'Keine Räume frei'; return; }
+    freeRoomsList.innerHTML = `${rooms.length} Raum/Räume frei`;
+    rooms.forEach(r => {
+      const span = document.createElement('span'); span.className='room-pill'; span.textContent = r;
+      span.onclick = () => { openReserveQuick(dateKey, slot, r); };
+      liveActions.appendChild(span);
+    });
+  }
+
+  function openReserveQuick(dateKey, slotRange, room){
+    reserveDate.value = dateKey; reserveSlot.value = slotRange; reserveRoom.value = room;
+    reserveNotice.textContent = `Bereit: ${room} am ${dateKey} ${slotRange}`;
+  }
+
+  // time window -> intersection
+  function checkTimeWindow(){
+    const dateKey = dateKeyFromInput(searchDate.value); const s = startTime.value; const e = endTime.value; const pianoOnly = pianoOnlySearch.checked;
+    if(!dateKey || !s || !e){ searchResult.textContent = 'Bitte Datum und Start/Endzeit wählen'; return; }
+    const startMin = toMinutes(s); const endMin = toMinutes(e);
+    if(startMin >= endMin){ searchResult.textContent = 'Endzeit muss nach Startzeit liegen'; return; }
+    const entries = schedule[weekdayFromDateKey(dateKey)] || {};
+    let common = null;
+    for(const range in entries){
+      const [rs,re] = range.split('-'); const rsm = toMinutes(rs); const rem = toMinutes(re);
+      if(rem <= startMin || rsm >= endMin) continue;
+      let rooms = getBaseFreeRoomsForSlot(dateKey, range);
+      rooms = applyOverridesAndReservations(dateKey, range, rooms);
+      if(pianoOnly) rooms = rooms.filter(r=>pianoRooms[r]);
+      if(common === null) common = new Set(rooms); else common = new Set(rooms.filter(x => common.has(x)));
+    }
+    const arr = common ? Array.from(common) : [];
+    searchResult.textContent = arr.length ? `Im Zeitraum komplett frei: ${arr.join(', ')}` : 'Keine Räume komplett frei';
+  }
+
+  // manual single check
+  function manualSingleCheck(){
+    const dateKey = dateKeyFromInput(singleDate.value); const t = singleTime.value; const pianoOnly = pianoOnlySingle.checked;
+    if(!dateKey || !t){ manualResult.textContent='Bitte Datum und Uhrzeit wählen'; return; }
+    const slot = findSlotForTime(dateKey, t);
+    if(!slot){ manualResult.textContent='Außerhalb der Öffnungszeiten'; return; }
+    let rooms = getBaseFreeRoomsForSlot(dateKey, slot);
+    rooms = applyOverridesAndReservations(dateKey, slot, rooms);
+    if(pianoOnly) rooms = rooms.filter(r=>pianoRooms[r]);
+    manualResult.textContent = rooms.length ? `Zu dieser Zeit frei: ${rooms.join(', ')}` : 'Keine Räume frei';
+  }
+
+  // reserve (append to /reservations)
+  async function reserveRoom(){
+    const dateKey = dateKeyFromInput(reserveDate.value); const slot = reserveSlot.value; const room = (reserveRoom.value||'').trim().toUpperCase(); const user = (yourName.value||'').trim() || 'anonym';
+    if(!dateKey || !slot || !room){ reserveNotice.textContent='Bitte Datum/Slot/Raum wählen'; return; }
+    const path = `reservations/${dateKey}/${slot}`;
+    const nodeRef = db.ref(path);
+    const snap = await nodeRef.once('value');
+    const list = snap.val() || [];
+    if(list.find(x=>x.room===room)) { reserveNotice.textContent = 'Raum bereits reserviert für diesen Slot'; return; }
+    const item = { room, user, ts: Date.now() };
+    list.push(item);
+    await nodeRef.set(list);
+    reserveNotice.textContent = 'Reservierung gespeichert';
+  }
+
+  // set override (frei/belegt)
+  async function setOverride(state){
+    const dateKey = dateKeyFromInput(reserveDate.value); const slot = reserveSlot.value; const room = (reserveRoom.value||'').trim().toUpperCase();
+    if(!dateKey || !slot || !room){ reserveNotice.textContent='Bitte Datum/Slot/Raum wählen'; return; }
+    const path = `overrides/${dateKey}/${slot}/${room}`;
+    await db.ref(path).set(state);
+    reserveNotice.textContent = `Override gesetzt: ${room} -> ${state}`;
+  }
+
+  // show day plan (weekly + overrides + reservations)
+  function showDayPlan(){
+    const d = reserveDate.value || todayStr; const weekday = weekdayFromDateKey(d);
+    const daySched = schedule[weekday] || {};
+    let html = '';
+    for(const range in daySched){
+      const base = daySched[range] || '';
+      const baseRooms = base.split(',').map(s=>s.trim()).filter(Boolean);
+      const o = (overrides?.[d]?.[range]) || {};
+      const res = (reservations?.[d]?.[range]) || [];
+      html += `<div style="margin-bottom:8px"><strong>${range}</strong>: `;
+      html += baseRooms.map(r=>`<span class="room-pill">${r}</span>`).join(' ');
+      if(Object.keys(o).length) html += `<div class="small muted">Overrides: ${Object.entries(o).map(([r,s])=>r+':'+s).join(', ')}</div>`;
+      if(res.length) html += `<div class="small muted">Reserviert: ${res.map(x=>x.room+"("+x.user+")").join(', ')}</div>`;
+      html += `</div>`;
+    }
+    dayPlan.innerHTML = html || 'Kein Plan für diesen Wochentag.';
+  }
+
+  // sync UI on data change
+  function syncUI(){ renderLive(); showDayPlan(); lastSync.textContent = new Date().toLocaleTimeString(); }
+
+  // events
+  liveDate.addEventListener('change', renderLive); liveTime.addEventListener('change', renderLive); pianoOnlyLive.addEventListener('change', renderLive);
+  document.getElementById('btnCheckWindow').addEventListener('click', checkTimeWindow);
+  document.getElementById('btnShowSchedule').addEventListener('click', showDayPlan);
+  document.getElementById('btnManualCheck').addEventListener('click', manualSingleCheck);
+  document.getElementById('btnReserve').addEventListener('click', reserveRoom);
+  document.getElementById('btnMarkFree').addEventListener('click', ()=>setOverride('frei'));
+  document.getElementById('btnMarkTaken').addEventListener('click', ()=>setOverride('belegt'));
+
+  // periodic refresh
+  setInterval(renderLive,15000);
+  // initial render
+  renderLive(); showDayPlan();
+
+  </script>
+</body>
+</html>
